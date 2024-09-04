@@ -19,23 +19,22 @@ def split_excel(file):
     output.seek(0)
     return output
 
-# Function to merge (union) multiple Excel files into a single DataFrame and save to a single Excel file
+# Function to merge (union) multiple Excel files into separate sheets within one Excel file
 def merge_excels(files):
-    combined_df = pd.DataFrame()
-    
-    for file in files:
-        excel_data = pd.ExcelFile(file)
-        for sheet_name in excel_data.sheet_names:
-            sheet_data = pd.read_excel(file, sheet_name=sheet_name)
-            combined_df = pd.concat([combined_df, sheet_data], ignore_index=True)
-    
-    # Save combined dataframe to an Excel file
     combined_output = BytesIO()
+    
     with pd.ExcelWriter(combined_output, engine='xlsxwriter') as writer:
-        combined_df.to_excel(writer, sheet_name='Combined_Data', index=False)
+        for i, file in enumerate(files):
+            excel_data = pd.ExcelFile(file)
+            for sheet_name in excel_data.sheet_names:
+                sheet_data = pd.read_excel(file, sheet_name=sheet_name)
+                # Use a unique sheet name for each input sheet, e.g., File1_Sheet1, File2_Sheet2, etc.
+                new_sheet_name = f"File{i+1}_{sheet_name}"
+                sheet_data.to_excel(writer, sheet_name=new_sheet_name, index=False)
+    
     combined_output.seek(0)
     
-    return combined_output, combined_df
+    return combined_output
 
 # File upload options
 st.sidebar.title("Excel Wizard Options")
@@ -54,10 +53,6 @@ elif option == 'Merge Excel Files':
     uploaded_files = st.file_uploader("Upload multiple Excel files", type=["xlsx"], accept_multiple_files=True)
     if uploaded_files:
         st.write("Processing...")
-        merged_result, preview_df = merge_excels(uploaded_files)
-        
-        # Preview the merged data
-        st.write("Preview of Merged Data:")
-        st.dataframe(preview_df)
+        merged_result = merge_excels(uploaded_files)
         
         st.download_button("Download Merged File", data=merged_result, file_name="merged_file.xlsx")
